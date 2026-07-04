@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-1
-  BACKEND_IMAGE: enterprise-ecommerce-backend
-  FRONTEND_IMAGE: enterprise-ecommerce-frontend
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  BACKEND_IMAGE: ${{ vars.BACKEND_IMAGE }}
+  FRONTEND_IMAGE: ${{ vars.FRONTEND_IMAGE }}
 
 jobs:
   build-and-push:
