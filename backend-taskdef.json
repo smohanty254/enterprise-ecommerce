@@ -1,0 +1,31 @@
+﻿{
+  "family": "enterprise-ecommerce-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::637423619953:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "637423619953.dkr.ecr.us-east-1.amazonaws.com/enterprise-ecommerce-backend:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 3000, "hostPort": 3000, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "3000" },
+        { "name": "DATABASE_URL", "value": "postgresql://ecommerce:Ecommerce2026!@/ecommerce" },
+        { "name": "REDIS_URL", "value": "redis://" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/enterprise-ecommerce-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
