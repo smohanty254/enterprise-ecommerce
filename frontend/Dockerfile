@@ -1,15 +1,11 @@
-FROM node:22-alpine AS deps
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
-FROM deps AS build
 COPY . .
 RUN npm run build
-FROM node:22-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/package.json ./
-RUN npm install --omit=dev
-COPY --from=build /app/dist ./dist
-EXPOSE 5173
-CMD ["node", "dist/main.js"]
+
+FROM nginx:1.27-alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
