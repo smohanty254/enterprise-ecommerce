@@ -1,0 +1,15 @@
+{
+  "name": "enterprise-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A simple e-commerce application built with Node.js and Express.",
+  "author": "Sudip Mohanty",
+  "license": "MIT",
+  "scripts": {
+    "frontend": "npm --prefix frontend run dev",
+    "backend": "npm --prefix backend run start:dev",
+    "install:all": "npm install && npm --prefix frontend install && npm --prefix backend install",
+    "format": "prettier --write .",
+    "lint": "npm --prefix frontend run lint && npm --prefix backend run lint"
+  }
+}
