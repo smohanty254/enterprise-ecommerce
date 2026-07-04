@@ -1,94 +1,295 @@
-# This workflow will build and push a new container image to Amazon ECR,
-# and then will deploy a new task definition to Amazon ECS, when there is a push to the "main" branch.
-#
-# To use this workflow, you will need to complete the following set-up steps:
-#
-# 1. Create an ECR repository to store your images.
-#    For example: `aws ecr create-repository --repository-name my-ecr-repo --region us-east-2`.
-#    Replace the value of the `ECR_REPOSITORY` environment variable in the workflow below with your repository's name.
-#    Replace the value of the `AWS_REGION` environment variable in the workflow below with your repository's region.
-#
-# 2. Create an ECS task definition, an ECS cluster, and an ECS service.
-#    For example, follow the Getting Started guide on the ECS console:
-#      https://us-east-2.console.aws.amazon.com/ecs/home?region=us-east-2#/firstRun
-#    Replace the value of the `ECS_SERVICE` environment variable in the workflow below with the name you set for the Amazon ECS service.
-#    Replace the value of the `ECS_CLUSTER` environment variable in the workflow below with the name you set for the cluster.
-#
-# 3. Store your ECS task definition as a JSON file in your repository.
-#    The format should follow the output of `aws ecs register-task-definition --generate-cli-skeleton`.
-#    Replace the value of the `ECS_TASK_DEFINITION` environment variable in the workflow below with the path to the JSON file.
-#    Replace the value of the `CONTAINER_NAME` environment variable in the workflow below with the name of the container
-#    in the `containerDefinitions` section of the task definition.
-#
-# 4. Store an IAM user access key in GitHub Actions secrets named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-#    See the documentation for each action used below for the recommended IAM policies for this IAM user,
-#    and best practices on handling the access key credentials.
-
-name: Deploy to Amazon ECS
+name: Deploy Enterprise Ecommerce to Amazon ECS
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+      - master
 
-env:
-  AWS_REGION: MY_AWS_REGION                   # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: MY_ECR_REPOSITORY           # set this to your Amazon ECR repository name
-  ECS_SERVICE: MY_ECS_SERVICE                 # set this to your Amazon ECS service name
-  ECS_CLUSTER: MY_ECS_CLUSTER                 # set this to your Amazon ECS cluster name
-  ECS_TASK_DEFINITION: MY_ECS_TASK_DEFINITION # set this to the path to your Amazon ECS task definition
-                                               # file, e.g. .aws/task-definition.json
-  CONTAINER_NAME: MY_CONTAINER_NAME           # set this to the name of the container in the
-                                               # containerDefinitions section of your task definition
+    tags:
+      - 'v*.*.*'
+
+  workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+  ####################################################
+  # Backend
+  ####################################################
+  BACKEND_IMAGE: ${{ vars.BACKEND_IMAGE }}
+  BACKEND_CLUSTER: ${{ vars.BACKEND_CLUSTER }}
+  BACKEND_SERVICE: ${{ vars.BACKEND_SERVICE }}
+  BACKEND_TASK_DEFINITION: backend-taskdef.json
+  BACKEND_CONTAINER_NAME: backend
+
+  ####################################################
+  # Frontend
+  ####################################################
+  FRONTEND_IMAGE: ${{ vars.FRONTEND_IMAGE }}
+  FRONTEND_CLUSTER: ${{ vars.FRONTEND_CLUSTER }}
+  FRONTEND_SERVICE: ${{ vars.FRONTEND_SERVICE }}
+  FRONTEND_TASK_DEFINITION: frontend-task.json
+  FRONTEND_CONTAINER_NAME: frontend
 
 jobs:
   deploy:
-    name: Deploy
+    name: Build Push Deploy
+
     runs-on: ubuntu-latest
-    environment: production
+
+    timeout-minutes: 40
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      ####################################################
+      # Checkout
+      ####################################################
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      ####################################################
+      # Configure AWS
+      ####################################################
 
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Build a docker container and
-        # push it to ECR so that it can
-        # be deployed to ECS.
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
 
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+      ####################################################
+      # Login ECR
+      ####################################################
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+
+        uses: aws-actions/amazon-ecr-login@v2
+
+      ####################################################
+      # Backend Build
+      ####################################################
+
+      - name: Build Backend Image
+
+        id: backend-image
+
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+
+        run: |
+
+          echo "Building Backend..."
+
+          docker build \
+            -f backend/Dockerfile \
+            -t $ECR_REGISTRY/${{ env.BACKEND_IMAGE }}:$IMAGE_TAG \
+            -t $ECR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest \
+            ./backend
+
+          echo "Pushing Backend..."
+
+          docker push $ECR_REGISTRY/${{ env.BACKEND_IMAGE }}:$IMAGE_TAG
+
+          docker push $ECR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest
+
+          echo "image=$ECR_REGISTRY/${{ env.BACKEND_IMAGE }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      ####################################################
+      # Backend Task Definition
+      ####################################################
+
+      - name: Render Backend Task Definition
+        id: backend-task
+
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+
+        with:
+          task-definition: ${{ env.BACKEND_TASK_DEFINITION }}
+          container-name: ${{ env.BACKEND_CONTAINER_NAME }}
+          image: ${{ steps.backend-image.outputs.image }}
+
+      ####################################################
+      # Deploy Backend
+      ####################################################
+
+      - name: Deploy Backend to ECS
+
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+
+        with:
+          task-definition: ${{ steps.backend-task.outputs.task-definition }}
+          service: ${{ env.BACKEND_SERVICE }}
+          cluster: ${{ env.BACKEND_CLUSTER }}
+          wait-for-service-stability: true
+
+      ####################################################
+      # Frontend Build
+      ####################################################
+
+      - name: Build Frontend Image
+
+        id: frontend-image
+
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+
+        run: |
+
+          echo "Building Frontend..."
+
+          docker build \
+            -f frontend/Dockerfile \
+            -t $ECR_REGISTRY/${{ env.FRONTEND_IMAGE }}:$IMAGE_TAG \
+            -t $ECR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest \
+            ./frontend
+
+          echo "Pushing Frontend..."
+
+          docker push \
+            $ECR_REGISTRY/${{ env.FRONTEND_IMAGE }}:$IMAGE_TAG
+
+          docker push \
+            $ECR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest
+
+          echo "image=$ECR_REGISTRY/${{ env.FRONTEND_IMAGE }}:$IMAGE_TAG" >> $GITHUB_OUTPUT    
+
+            ####################################################
+      # Frontend Task Definition
+      ####################################################
+
+      - name: Render Frontend Task Definition
+        id: frontend-task
+
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+
+        with:
+          task-definition: ${{ env.FRONTEND_TASK_DEFINITION }}
+          container-name: ${{ env.FRONTEND_CONTAINER_NAME }}
+          image: ${{ steps.frontend-image.outputs.image }}
+
+      ####################################################
+      # Deploy Frontend
+      ####################################################
+
+      - name: Deploy Frontend to ECS
+
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+
+        with:
+          task-definition: ${{ steps.frontend-task.outputs.task-definition }}
+          service: ${{ env.FRONTEND_SERVICE }}
+          cluster: ${{ env.FRONTEND_CLUSTER }}
+          wait-for-service-stability: true
+
+      ####################################################
+      # Verify Deployment
+      ####################################################
+
+      - name: Verify Backend Service
+
+        run: |
+          aws ecs describe-services \
+            --cluster ${{ env.BACKEND_CLUSTER }} \
+            --services ${{ env.BACKEND_SERVICE }}
+
+      - name: Verify Frontend Service
+
+        run: |
+          aws ecs describe-services \
+            --cluster ${{ env.FRONTEND_CLUSTER }} \
+            --services ${{ env.FRONTEND_SERVICE }}
+
+      ####################################################
+      # Deployment Summary
+      ####################################################
+
+      - name: Deployment Summary
+
+        run: |
+          echo ""
+          echo "========================================"
+          echo " ECS Deployment Completed Successfully"
+          echo "========================================"
+          echo ""
+          echo "Backend Cluster : ${{ env.BACKEND_CLUSTER }}"
+          echo "Backend Service : ${{ env.BACKEND_SERVICE }}"
+          echo ""
+          echo "Frontend Cluster : ${{ env.FRONTEND_CLUSTER }}"
+          echo "Frontend Service : ${{ env.FRONTEND_SERVICE }}"
+          echo ""
+          echo "Backend Image"
+          echo "${{ steps.backend-image.outputs.image }}"
+          echo ""
+          echo "Frontend Image"
+          echo "${{ steps.frontend-image.outputs.image }}"
+          echo ""
+          echo "Commit SHA"
+          echo "${{ github.sha }}"
+          echo ""
+
+      ####################################################
+      # GitHub Actions Summary
+      ####################################################
+
+      - name: Publish Deployment Summary
+        if: always()
+        run: |
+          {
+            echo "## 🚀 Amazon ECS Deployment Summary"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Workflow | ${{ github.workflow }} |"
+            echo "| Repository | ${{ github.repository }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Commit | ${{ github.sha }} |"
+            echo "| Actor | ${{ github.actor }} |"
+            echo "| AWS Region | ${{ env.AWS_REGION }} |"
+            echo ""
+            echo "### Backend"
+            echo ""
+            echo "- Cluster: ${{ env.BACKEND_CLUSTER }}"
+            echo "- Service: ${{ env.BACKEND_SERVICE }}"
+            echo "- Image: ${{ steps.backend-image.outputs.image }}"
+            echo ""
+            echo "### Frontend"
+            echo ""
+            echo "- Cluster: ${{ env.FRONTEND_CLUSTER }}"
+            echo "- Service: ${{ env.FRONTEND_SERVICE }}"
+            echo "- Image: ${{ steps.frontend-image.outputs.image }}"
+            echo ""
+            echo "Deployment completed successfully."
+          } >> $GITHUB_STEP_SUMMARY
+
+      ####################################################
+      # Success
+      ####################################################
+
+      - name: Success
+        if: success()
+        run: |
+          echo "====================================="
+          echo "Deployment Successful"
+          echo "====================================="
+
+      ####################################################
+      # Failure
+      ####################################################
+
+      - name: Failure
+        if: failure()
+        run: |
+          echo "====================================="
+          echo "Deployment Failed"
+          echo "====================================="
+          exit 1
