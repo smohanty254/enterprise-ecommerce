@@ -21,6 +21,9 @@ export const entities = [
 export const typeOrmOptions = (): TypeOrmModuleOptions => ({
   type: 'postgres',
   url: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
   entities,
   migrations: [join(__dirname, 'migrations/*{.ts,.js}')],
   synchronize: false,
