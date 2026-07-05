@@ -8,6 +8,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { envSchema } from './config/env';
 import { typeOrmOptions } from './database/typeorm.options';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { ProductsModule } from './modules/products/products.module';
+import { CartModule } from './modules/cart/cart.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -22,6 +29,13 @@ import { typeOrmOptions } from './database/typeorm.options';
       },
     ]),
     TypeOrmModule.forRootAsync({ useFactory: typeOrmOptions }),
+    UsersModule,
+    AuthModule,
+    ProductsModule,
+    CartModule,
+    OrdersModule,
+    RealtimeModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [],
