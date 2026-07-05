@@ -27,7 +27,7 @@
           "value": "redis://enterprise-ecommerce-redis.bxj12e.0001.use1.cache.amazonaws.com:6379"
         },
         {
-          "name": "JWT_SECRET",
+          "name": "JWT_ACCESS_SECRET",
           "value": "mysecretkey"
         },
         {
