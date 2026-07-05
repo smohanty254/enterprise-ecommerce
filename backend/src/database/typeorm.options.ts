@@ -18,7 +18,7 @@ export const entities = [
   AuditLog,
 ];
 
-export const typeOrmConfig = (): TypeOrmModuleOptions => ({
+export const typeOrmOptions = (): TypeOrmModuleOptions => ({
   type: 'postgres',
   url: process.env.DATABASE_URL,
   entities,
