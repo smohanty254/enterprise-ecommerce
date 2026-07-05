@@ -1,6 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 export class Init1710000000000 implements MigrationInterface {
   async up(q: QueryRunner): Promise<void> {
+    console.log('Migration is starting.....');
     await q.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
     await q.query(`CREATE TYPE user_role AS ENUM ('ADMIN','CUSTOMER')`);
     await q.query(

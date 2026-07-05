@@ -10,13 +10,38 @@
       "name": "backend",
       "image": "637423619953.dkr.ecr.us-east-1.amazonaws.com/enterprise-ecommerce-backend:latest",
       "essential": true,
-      "portMappings": [
-        { "containerPort": 3000, "hostPort": 3000, "protocol": "tcp" }
-      ],
+      "portMappings": [{ "containerPort": 3000, "hostPort": 3000, "protocol": "tcp" }],
       "environment": [
+        { "name": "NODE_ENV", "value": "production" },
         { "name": "PORT", "value": "3000" },
-        { "name": "DATABASE_URL", "value": "postgresql://ecommerce:Ecommerce2026!@/ecommerce" },
-        { "name": "REDIS_URL", "value": "redis://" }
+        {
+          "name": "APP_ORIGIN",
+          "value": "http://enterprise-ecommerce-alb-436184994.us-east-1.elb.amazonaws.com/"
+        },
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://ecommerce:ecommerce@enterprise-ecommerce-postgres.cx2ey4a8y6qv.us-east-1.rds.amazonaws.com:5432/ecommerce"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://enterprise-ecommerce-redis.bxj12e.0001.use1.cache.amazonaws.com:6379"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "mysecretkey"
+        },
+        {
+          "name": "JWT_REFRESH_SECRET",
+          "value": "myrefreshsecretkey"
+        },
+        {
+          "name": "JWT_ACCESS_TTL",
+          "value": "15m"
+        },
+        {
+          "name": "JWT_REFRESH_TTL_DAYS",
+          "value": "30"
+        }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
