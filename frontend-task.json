@@ -18,7 +18,7 @@
         { "name": "PORT", "value": "80" },
         {
           "name": "VITE_API_BASE_URL",
-          "value": "http://enterprise-ecommerce-alb-436184994.us-east-1.elb.amazonaws.com/api/"
+          "value": "http://enterprise-ecommerce-alb-436184994.us-east-1.elb.amazonaws.com/api"
         }
       ],
       "logConfiguration": {
