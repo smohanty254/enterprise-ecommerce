@@ -1,8 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from 'axios';
 
 // Base API configuration
 export const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000/api',
+  baseURL:
+    (window as any)._env_?.VITE_API_BASE_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    'http://localhost:3000/api',
   withCredentials: true, // Crucial for sending/receiving HttpOnly cookies, especially for authentication purposes
   headers: {
     'Content-Type': 'application/json',
