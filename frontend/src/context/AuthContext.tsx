@@ -12,6 +12,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Function to instantly seed context state right after a manual login action
+  const initializeSession = (token: string, userPayload: User) => {
+    setAccessToken(token);
+    setIsAuthenticated(true);
+    queryClient.setQueryData(['auth-user'], userPayload);
+  };
+
   // Silent Initial Session check on app mount
   useEffect(() => {
     let isMounted = true;
@@ -112,10 +119,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
-  const userPayload = error || !isAuthenticated ? null : user || null;
+  const activeUser = error || !isAuthenticated ? null : user || null;
 
   return (
-    <AuthContext.Provider value={{ user: userPayload, isLoading: isQueryLoading, logout }}>
+    <AuthContext.Provider
+      value={{ user: activeUser, isLoading: isQueryLoading, logout, initializeSession }}
+    >
       {children}
     </AuthContext.Provider>
   );

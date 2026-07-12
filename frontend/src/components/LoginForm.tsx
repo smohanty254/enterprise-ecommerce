@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router';
-import { api, setAccessToken } from '../api/axios';
+import { api } from '../api/axios';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, TextField, Button, Typography, Alert, Card, CardContent } from '@mui/material';
+import { useAuth } from '../hooks/useAuth';
+import type { UserRole } from '../types/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -16,13 +18,11 @@ const loginSchema = z.object({
 type LoginFields = z.infer<typeof loginSchema>;
 
 export const LoginForm: React.FC = () => {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const { initializeSession } = useAuth();
 
   console.log('Location in LoginForm: ', location);
-
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
 
   const {
     register,
@@ -38,9 +38,18 @@ export const LoginForm: React.FC = () => {
       return data; // NestJS returns structure like { token: "..." }
     },
     onSuccess: (data) => {
-      setAccessToken(data.token);
-      queryClient.invalidateQueries({ queryKey: ['auth-user'] });
-      navigate(from, { replace: true });
+      // Unpack response: data.accessToken, data.user
+      initializeSession(data.accessToken, data.user);
+
+      // Handle Role-based redirection path logic immediately
+      const role: UserRole = data.user.role;
+      if (role === 'ADMIN') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'CUSTOMER') {
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     },
   });
 

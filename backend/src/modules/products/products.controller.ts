@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -15,13 +16,14 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { CreateProductDto, UpdateProductDto } from './product.dto';
 import { ProductsService } from './products.service';
+import { PaginationDto } from './pagination.dto';
 
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
   constructor(private service: ProductsService) {}
-  @Get() list() {
-    return this.service.list();
+  @Get() list(@Query() paginationDto: PaginationDto) {
+    return this.service.list(paginationDto);
   }
   @Get(':id') get(@Param('id') id: string) {
     return this.service.get(id);
