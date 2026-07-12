@@ -52,12 +52,19 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || '';
+
+    // CRITICAL GUARD: If the refresh endpoint itself fails with 400 or 401, Stop immediately
+    // This breaks the infinite loop on the first load when no cookie exists.
+    if (requestUrl.includes('/auth/refresh')) {
+      setAccessToken(null);
+      return Promise.reject(error);
+    }
 
     // Avoid infinite loop if refresh endpoint itself returns 401
     if (
       (error.response?.status === 401 || error.response?.status === 400) &&
-      !originalRequest._retry &&
-      !originalRequest.url.includes('/auth/refresh')
+      !originalRequest._retry
     ) {
       // If a refresh cycle is already running, queue this request
       if (isRefreshing) {
