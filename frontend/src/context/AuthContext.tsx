@@ -5,13 +5,17 @@ import { api, setAccessToken } from '../api/axios';
 import { type User } from '../types/auth';
 import { AuthContext } from './AuthContextObject';
 import axios from 'axios';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Silent Initial Session check on app mount
   useEffect(() => {
+    let isMounted = true;
+
     const initializeAuth = async () => {
       try {
         // Attempt a quiet refresh using the HttpOnly cookie
@@ -20,16 +24,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           {},
           { withCredentials: true },
         );
-        setAccessToken(response.data.token);
+
+        if (isMounted) {
+          setAccessToken(response.data.token);
+          setIsAuthenticated(true);
+        }
       } catch (err) {
-        // Safe to catch; implies user is completely logged out/guest
-        setAccessToken(null);
+        if (isMounted) {
+          // Safe to catch; implies user is completely logged out/guest
+          setAccessToken(null);
+          setIsAuthenticated(false);
+        }
       } finally {
-        setIsInitializing(false);
+        if (isMounted) {
+          setIsInitializing(false);
+        }
       }
     };
 
     initializeAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Fetch current profile using the access token
@@ -46,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     queryKey: ['auth-user'],
     queryFn: fetchCurrentUser,
     retry: false, // Don't infinite retry if user is not authenticated
-    enabled: !isInitializing,
+    enabled: !isInitializing && isAuthenticated,
     staleTime: 1000 * 60 * 15, // 15 minutes cache
   });
 
@@ -57,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Logout failed on backend', e);
     } finally {
       setAccessToken(null);
+      setIsAuthenticated(false);
       queryClient.setQueryData(['auth-user'], null);
       queryClient.clear();
     }
@@ -65,18 +83,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sync token expiration events with global client state
   useEffect(() => {
     const handleAuthExpired = () => {
+      setIsAuthenticated(false);
       queryClient.setQueryData(['auth-user'], null);
     };
     window.addEventListener('auth-expired', handleAuthExpired);
     return () => window.removeEventListener('auth-expired', handleAuthExpired);
   }, [queryClient]);
 
-  const combinedLoading = isInitializing || isQueryLoading;
+  // Hard blocking overlaying until boot initialization completes
+  if (isInitializing) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+        }}
+        role="alert"
+        aria-busy="true"
+      >
+        <CircularProgress aria-label="Loading workspace configuration" />
+        <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+          Connecting to secure session...
+        </Typography>
+      </Box>
+    );
+  }
+
+  const userPayload = error || !isAuthenticated ? null : user || null;
 
   return (
-    <AuthContext.Provider
-      value={{ user: error ? null : user || null, isLoading: combinedLoading, logout }}
-    >
+    <AuthContext.Provider value={{ user: userPayload, isLoading: isQueryLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );
