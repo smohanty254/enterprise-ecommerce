@@ -15,12 +15,26 @@ export const api = axios.create({
 
 // In-memory token storage (Protects against XSS attacks)
 let accessToken: string | null = null;
+let isRefreshing = false;
+let failedQueue: any[] = [];
 
 export const setAccessToken = (token: string | null) => {
   accessToken = token;
 };
 
 export const getAccessToken = () => accessToken;
+
+// Process the waiting queue when refresh succeeds or fails
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 // Request Interceptor: Attach access token if present
 api.interceptors.request.use(
@@ -41,32 +55,48 @@ api.interceptors.response.use(
 
     // Avoid infinite loop if refresh endpoint itself returns 401
     if (
-      error.response?.status === 401 &&
+      (error.response?.status === 401 || error.response?.status === 400) &&
       !originalRequest._retry &&
       !originalRequest.url.includes('/auth/refresh')
     ) {
-      originalRequest._retry = true;
-
-      try {
-        // NestJS endpoint handling refresh cookie and returning a new access toke
-        const response = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-
-        const { token } = response.data;
-        setAccessToken(token);
-
-        // Retry original request with new access token
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        setAccessToken(null);
-        // Dispatch custom event to redirect to login or clear cache if needed
-        window.dispatchEvent(new Event('auth-expired'));
-        return Promise.reject(refreshError);
+      // If a refresh cycle is already running, queue this request
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
       }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      return new Promise((resolve, reject) => {
+        axios
+          .post(`${api.defaults.baseURL}/auth/refresh`, {}, { withCredentials: true })
+          .then((response) => {
+            const { token } = response.data;
+            setAccessToken(token);
+
+            // Execute all queued requests with the fresh token
+            processQueue(null, token);
+
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(api(originalRequest));
+          })
+          .catch((refreshError) => {
+            processQueue(refreshError, null);
+            setAccessToken(null);
+            window.dispatchEvent(new Event('auth-expired'));
+            reject(refreshError);
+          })
+          .finally(() => {
+            isRefreshing = false;
+          });
+      });
     }
     return Promise.reject(error);
   },
