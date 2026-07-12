@@ -28,10 +28,10 @@ const Navigation = () => {
             color="secondary"
             variant="contained"
             onClick={logout}
-            aria-label={`Log out ${user.fullName}`}
+            aria-label={`Log out ${user.email}`}
             sx={{ ml: 2 }}
           >
-            Logout ({user.fullName.split(' ')[0]})
+            Logout ({user.email})
           </Button>
         </>
       ) : (
