@@ -27,7 +27,7 @@ const AppRoutes: React.FC = () => (
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
               <Dashboard />
             </ProtectedRoute>
           }

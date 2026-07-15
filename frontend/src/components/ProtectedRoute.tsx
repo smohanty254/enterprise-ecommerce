@@ -11,6 +11,8 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { user, isLoading } = useAuth();
+  console.log(allowedRoles);
+  console.log(user?.roles);
   const location = useLocation();
 
   if (isLoading) {
