@@ -19,7 +19,7 @@ const Navigation = () => {
           <Button color="inherit" component={RouterLink} to="/dashboard">
             Dashboard
           </Button>
-          {user.roles.includes('ADMIN') && (
+          {user.roles === 'ADMIN' && (
             <Button color="inherit" component={RouterLink} to="/admin">
               Admin
             </Button>
